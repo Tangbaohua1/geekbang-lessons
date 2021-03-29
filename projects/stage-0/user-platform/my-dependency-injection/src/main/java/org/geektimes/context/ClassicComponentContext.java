@@ -16,11 +16,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * 基于 JNDI实现的组件上下文
+ * Java 传统组件上下文（基于 JNDI实现）
  */
-public class JndiComponentContext implements ComponentContext {
+public class ClassicComponentContext implements ComponentContext {
 
-    public static final String CONTEXT_NAME = JndiComponentContext.class.getName();
+    public static final String CONTEXT_NAME = ClassicComponentContext.class.getName();
 
     private static final String COMPONENT_ENV_CONTEXT_NAME = "java:comp/env";
 
@@ -53,12 +53,12 @@ public class JndiComponentContext implements ComponentContext {
      *
      * @return
      */
-    public static JndiComponentContext getInstance() {
-        return (JndiComponentContext) servletContext.getAttribute(CONTEXT_NAME);
+    public static ClassicComponentContext getInstance() {
+        return (ClassicComponentContext) servletContext.getAttribute(CONTEXT_NAME);
     }
 
     public void init(ServletContext servletContext) throws RuntimeException {
-        JndiComponentContext.servletContext = servletContext;
+        ClassicComponentContext.servletContext = servletContext;
         servletContext.setAttribute(CONTEXT_NAME, this);
         this.init();
     }
@@ -82,17 +82,27 @@ public class JndiComponentContext implements ComponentContext {
      * </ol>
      */
     protected void initializeComponents() {
-        componentsCache.values().forEach(component -> {
-            Class<?> componentClass = component.getClass();
-            // 注入阶段 - {@link Resource}
-            injectComponents(component, componentClass);
-            // 查询候选方法
-            List<Method> candidateMethods = findCandidateMethods(componentClass);
-            // 初始阶段 - {@link PostConstruct}
-            processPostConstruct(component, candidateMethods);
-            // 本阶段处理 {@link PreDestroy} 方法元数据
-            processPreDestroyMetadata(component, candidateMethods);
-        });
+        componentsCache.values().forEach(this::initializeComponent);
+    }
+
+    /**
+     * 初始化组件（支持 Java 标准 Commons Annotation 生命周期）
+     * <ol>
+     *  <li>注入阶段 - {@link Resource}</li>
+     *  <li>初始阶段 - {@link PostConstruct}</li>
+     *  <li>销毁阶段 - {@link PreDestroy}</li>
+     * </ol>
+     */
+    public void initializeComponent(Object component) {
+        Class<?> componentClass = component.getClass();
+        // 注入阶段 - {@link Resource}
+        injectComponent(component, componentClass);
+        // 查询候选方法
+        List<Method> candidateMethods = findCandidateMethods(componentClass);
+        // 初始阶段 - {@link PostConstruct}
+        processPostConstruct(component, candidateMethods);
+        // 本阶段处理 {@link PreDestroy} 方法元数据
+        processPreDestroyMetadata(component, candidateMethods);
     }
 
     /**
@@ -117,7 +127,11 @@ public class JndiComponentContext implements ComponentContext {
         }));
     }
 
-    private void injectComponents(Object component, Class<?> componentClass) {
+    public void injectComponent(Object component) {
+        injectComponent(component, component.getClass());
+    }
+
+    protected void injectComponent(Object component, Class<?> componentClass) {
         Stream.of(componentClass.getDeclaredFields())
                 .filter(field -> {
                     int mods = field.getModifiers();
