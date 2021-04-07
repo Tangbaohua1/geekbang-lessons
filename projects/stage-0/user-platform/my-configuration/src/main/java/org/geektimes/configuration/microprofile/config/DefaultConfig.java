@@ -8,7 +8,10 @@ import org.eclipse.microprofile.config.spi.Converter;
 import org.geektimes.configuration.microprofile.config.converter.Converters;
 import org.geektimes.configuration.microprofile.config.source.ConfigSources;
 
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static java.util.stream.StreamSupport.stream;
 
@@ -25,11 +28,7 @@ class DefaultConfig implements Config {
 
     @Override
     public <T> T getValue(String propertyName, Class<T> propertyType) {
-        ConfigValue configValue = getConfigValue(propertyName);
-        if (configValue == null) {
-            return null;
-        }
-        String propertyValue = configValue.getValue();
+        String propertyValue = getPropertyValue(propertyName);
         // String 转换成目标类型
         Converter<T> converter = doGetConverter(propertyType);
         return converter == null ? null : converter.convert(propertyValue);
@@ -37,37 +36,17 @@ class DefaultConfig implements Config {
 
     @Override
     public ConfigValue getConfigValue(String propertyName) {
+        return null;
+    }
 
+    protected String getPropertyValue(String propertyName) {
         String propertyValue = null;
-
-        ConfigSource configSource = null;
-
-        Iterator<ConfigSource> iterator = configSources.iterator();
-
-        while (iterator.hasNext()) {
-            configSource = iterator.next();
+        for (ConfigSource configSource : configSources) {
             propertyValue = configSource.getValue(propertyName);
             if (propertyValue != null) {
                 break;
             }
         }
-
-        if (propertyValue == null) { // Not found
-            return null;
-        }
-
-        return new DefaultConfigValue(propertyName, propertyValue, transformPropertyValue(propertyValue),
-                configSource.getName(),
-                configSource.getOrdinal());
-    }
-
-    /**
-     * 转换属性值（如果需要）
-     *
-     * @param propertyValue
-     * @return
-     */
-    protected String transformPropertyValue(String propertyValue) {
         return propertyValue;
     }
 
